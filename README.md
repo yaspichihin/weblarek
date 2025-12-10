@@ -127,31 +127,25 @@ interface IBuyer {
 }
 
 // Интерфейс для валидации ошибок в классе Buyer
-interface IValidationErrors {
-    payment?: string;
-    address?: string;
-    email?: string;
-    phone?: string;
-}
+export type IValidationErrors = Partial<IBuyer>
 ```
 
 #### ApiService
+
 ```ts
 
 // Запрос на создание заказа
-interface IOrder {
-    payment: string;
-    email: string;
-    phone: string;
-    address: string;
-    total: number;
-    items: string[];
+import {IBuyer} from "./index";
+
+interface IOrder extends IBuyer {
+  total: number;
+  items: string[];
 }
 
 // Ответ на создание заказа
 interface IOrderResponse {
-    id: string;
-    total: number;
+  id: string;
+  total: number;
 }
 ```
 
@@ -164,11 +158,6 @@ interface IOrderResponse {
 ```
 class ProductCatalog {
 
-  constructor(
-      catalog,
-      selectedProduct
-  ) ...
-  
   // Получение массива товаров
   getProducts() ...
 
@@ -189,11 +178,6 @@ class ProductCatalog {
 ### Корзина
 ```
 class Cart {
-
-  // Конструктор экземпляра класса корзина
-  constructor(
-      catalog,
-  ) ...
 
   // Получение массива товаров, которые находятся в корзине
   getProducts() ...
@@ -223,14 +207,6 @@ class Cart {
 ```
 class Buyer {
 
-  // Конструктор экземпляра Buyer
-  constructor(
-      payment,
-      address,
-      email,
-      phone,
-  ) ...
-  
   // Вывод атрибута типа оплаты
   getPayment() ...
   

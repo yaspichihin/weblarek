@@ -6,32 +6,55 @@ import { Cart } from "./components/models/Cart.ts";
 import { Buyer } from "./components/models/Buyer.ts";
 
 import './scss/styles.scss';
+import {IOrderResponse, IProduct} from "./types";
 
 
 // ApiService
 
 const api = new Api(API_URL);
 const apiService = new ApiService(api);
-const productResponse = await apiService.getProducts();
-const productCollection = productResponse.items;
-const order = await apiService.postOrder({
-  payment: "online",
-  email: "a@a.a",
-  phone: '123',
-  address: 'asdf',
-  total: 2200,
-  items: [
-    "854cef69-976d-4c2a-a18c-2aa45046c390",
-    "c101ab44-ed99-4a54-990d-47aa2bb4e7d9"
-  ]
-})
-console.log('Проверка создания заказа: ', order)
+
+async function getData() : Promise<IProduct[]> {
+  try {
+    const productResponse = await apiService.getProducts();
+    return productResponse.items;
+  }
+  catch (err) {
+    console.error('Ошибка: ', err);
+    return [];
+  }
+}
+
+async function postOrder() : Promise<IOrderResponse| null>  {
+  try {
+    return await apiService.postOrder({
+      payment: "online",
+      email: "a@a.a",
+      phone: '123',
+      address: 'asdf',
+      total: 2200,
+      items: [
+        "854cef69-976d-4c2a-a18c-2aa45046c390",
+        "c101ab44-ed99-4a54-990d-47aa2bb4e7d9"
+      ]
+    })
+  }
+  catch(err) {
+    console.error('Ошибка: ', err);
+    return null;
+  }
+}
+
+const productCollection = await getData()
+const orderResponse = await postOrder();
+
+console.log('Проверка создания заказа: ', orderResponse)
 
 
 // Products
 
 // Проверка создания экземпляра
-const products = new Products(productCollection);
+const products = new Products();
 console.log('Массив товаров из каталога: ', products.getProducts());
 
 // Проверка установки коллекции продуктов
@@ -88,7 +111,7 @@ console.log('Проверка кол-ва продуктов в корзине: 
 // Buyer
 
 // Проверка создания покупателя
-const buyer = new Buyer("cash", "Moscow", "e@mail.com", "12345");
+const buyer = new Buyer();
 console.log(buyer.getBuyerInfo())
 
 // Проверка изменения способа оплаты

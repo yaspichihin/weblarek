@@ -1,15 +1,12 @@
 import {IProduct} from "../../types"
 
 export class Cart {
-  private _products: IProduct[];
-
-  constructor(
-    products: IProduct[] = [],
-  ) {
-    this._products = [...products];
-  }
+  private _products: IProduct[] = [];
 
   getProducts():IProduct[] {
+    // Тут логика работы с изменяемыми данными.
+    // Защита от изменения состояния списка
+    // продуктов из вне по полученной ссылке.
     return [...this._products];
   }
 
@@ -37,7 +34,6 @@ export class Cart {
   }
 
   isProductInCart(productId: string): boolean {
-    const product = this._products.find(product => product.id === productId);
-    return !!product;
+    return this._products.some(product => product.id === productId);
   }
 }
