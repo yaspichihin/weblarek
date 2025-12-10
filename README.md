@@ -98,3 +98,185 @@ Presenter - презентер содержит основную логику п
 `emit<T extends object>(event: string, data?: T): void` - инициализация события. При вызове события в метод передается название события и объект с данными, который будет использован как аргумент для вызова обработчика.  
 `trigger<T extends object>(event: string, context?: Partial<T>): (data: T) => void` - возвращает функцию, при вызове которой инициализируется требуемое в параметрах событие с передачей в него данных из второго параметра.
 
+
+## Данные
+
+### Интерфейсы
+
+#### Продукт
+```ts
+interface IProduct {
+    id: string;
+    title: string;
+    image: string;
+    category: string;
+    price: number | null
+    description: string;
+}
+```
+
+#### Покупатель
+```ts
+type TPayment = 'card' | 'cash' | '';
+
+interface IBuyer {
+    payment: TPayment;
+    address: string;
+    email: string;
+    phone: string;
+}
+
+// Интерфейс для валидации ошибок в классе Buyer
+interface IValidationErrors {
+    payment?: string;
+    address?: string;
+    email?: string;
+    phone?: string;
+}
+```
+
+#### ApiService
+```ts
+
+// Запрос на создание заказа
+interface IOrder {
+    payment: string;
+    email: string;
+    phone: string;
+    address: string;
+    total: number;
+    items: string[];
+}
+
+// Ответ на создание заказа
+interface IOrderResponse {
+    id: string;
+    total: number;
+}
+```
+
+
+
+## Модели данных
+
+### Каталог товаров
+
+```
+class ProductCatalog {
+
+  constructor(
+      catalog,
+      selectedProduct
+  ) ...
+  
+  // Получение массива товаров
+  getProducts() ...
+
+  // Сохранение массива товаров
+  setProducts(newCatalog) ...
+  
+  // Получение товара для подробного отображения
+  getSelectedProduct() ...
+
+  // Сохранение товара для подробного отображения
+  setSelectedProduct(newProduct) ...
+  
+  // Получение одного товара по его id
+  getProduct(productId) ...
+}
+```
+
+### Корзина
+```
+class Cart {
+
+  // Конструктор экземпляра класса корзина
+  constructor(
+      catalog,
+  ) ...
+
+  // Получение массива товаров, которые находятся в корзине
+  getProducts() ...
+  
+  // Добавление товара в массив корзины
+  addProduct(product) ...
+  
+  // Удаление товара из массива корзины;
+  removeProduct(product) ...
+  
+  // Очистка корзины
+  clearCart() ...
+  
+  // Получение количества товаров в корзине
+  getCartLength() ...
+  
+  // Получение стоимости всех товаров в корзине
+  getCartPrice(): ...
+  
+  // Проверка наличия товара в корзине по его id
+  isProductInCart(productId) ...
+}
+```
+
+### Покупатель
+
+```
+class Buyer {
+
+  // Конструктор экземпляра Buyer
+  constructor(
+      payment,
+      address,
+      email,
+      phone,
+  ) ...
+  
+  // Вывод атрибута типа оплаты
+  getPayment() ...
+  
+  // Установка атрибута типа оплаты
+  setPayment(newPayment) ...
+  
+  // Вывод атрибута адрес
+  getAddress() ...
+  
+  // Установка атрибута адрес
+  setAddress(newAddress) ...
+
+  // Вывод атрибута email
+  getEmail(): ...
+  
+  // Установка атрибута email
+  setEmail(newEmail) ...
+  
+  // Вывод атрибута телефон
+  getPhone() ...
+  
+  // Установка атрибута телефон
+  setPhone(newPhone) ...
+
+  // Получение всех данных покупателя
+  getBuyerInfo() ...
+  
+  // Очистка данных покупателя
+  clearBuyerInfo() ...
+  
+  // Валидация атрибутов покупателя
+  validate() ...
+}
+```
+
+## Слой коммуникации
+```
+class ApiService {
+  
+  // Композиция API
+  constructor(api) ...
+  
+  // Получить продукты
+  getProducts(): ...
+  
+  // Создать заказ
+  postOrder(orderData): ...
+}
+```
