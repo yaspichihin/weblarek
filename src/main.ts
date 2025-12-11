@@ -14,6 +14,7 @@ import {IOrderResponse, IProduct} from "./types";
 const api = new Api(API_URL);
 const apiService = new ApiService(api);
 
+// Не согласен, чистая функция все хорошо, изменять экземпляр класса нужно явно что я и делаю на 62 строке.
 async function getData() : Promise<IProduct[]> {
   try {
     const productResponse = await apiService.getProducts();

@@ -6,6 +6,8 @@ export  class Buyer {
   private _email: string = "";
   private _phone: string = "";
 
+  constructor() {}
+
   getPayment(): TPayment {
     return this._payment;
   }

@@ -3,6 +3,8 @@ import {IProduct} from "../../types"
 export class Cart {
   private _products: IProduct[] = [];
 
+  constructor() {}
+
   getProducts():IProduct[] {
     // Тут логика работы с изменяемыми данными.
     // Защита от изменения состояния списка

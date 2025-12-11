@@ -4,6 +4,8 @@ export class Products {
   private _products: IProduct[] = [];
   private _selectedProduct: IProduct | null = null;
 
+  constructor() {}
+
   getProducts(): IProduct[] {
     return [...this._products];
   }
