@@ -1,143 +1,307 @@
-import { API_URL } from "./utils/constants.ts"
-import { Api } from "./components/base/Api.ts"
-import { ApiService } from "./components/services/ApiService.ts";
-import { Products } from "./components/models/Products.ts";
-import { Cart } from "./components/models/Cart.ts";
-import { Buyer } from "./components/models/Buyer.ts";
+import { API_URL } from "./utils/constants";
+import { Api } from "./components/base/Api";
+import { EventEmitter } from "./components/base/Events";
+import { ApiService } from "./components/services/ApiService";
 
-import './scss/styles.scss';
-import {IOrderResponse, IProduct} from "./types";
+// Модели
+import { Products } from "./components/models/Products";
+import { Cart } from "./components/models/Cart";
+import { Buyer } from "./components/models/Buyer";
 
+// View компоненты
+import { Header, Modal, Gallery, Basket, Success, CardCatalog, CardPreview, CardBasket, OrderForm, ContactsForm } from "./components/view";
 
-// ApiService
+import "./scss/styles.scss";
 
+// Инициализация
 const api = new Api(API_URL);
 const apiService = new ApiService(api);
+const events = new EventEmitter();
+const products = new Products(events);
+const cart = new Cart(events);
+const buyer = new Buyer(events);
 
-// Не согласен, чистая функция все хорошо, изменять экземпляр класса нужно явно что я и делаю на 62 строке.
-async function getData() : Promise<IProduct[]> {
+// Основные контейнеры
+const headerContainer = document.querySelector(".header") as HTMLElement;
+const galleryContainer = document.querySelector(".gallery") as HTMLElement;
+const modalContainer = document.querySelector("#modal-container") as HTMLElement;
+
+// Темплейты
+const cardCatalogTemplate = document.querySelector("#card-catalog") as HTMLTemplateElement;
+const cardPreviewTemplate = document.querySelector("#card-preview") as HTMLTemplateElement;
+const cardBasketTemplate = document.querySelector("#card-basket") as HTMLTemplateElement;
+const basketTemplate = document.querySelector("#basket") as HTMLTemplateElement;
+const orderTemplate = document.querySelector("#order") as HTMLTemplateElement;
+const contactsTemplate = document.querySelector("#contacts") as HTMLTemplateElement;
+const successTemplate = document.querySelector("#success") as HTMLTemplateElement;
+
+// View
+const header = new Header(headerContainer, events);
+const gallery = new Gallery(galleryContainer);
+const modal = new Modal(modalContainer, events);
+
+// Обработка изменения каталога товаров
+events.on("products:changed", () => {
+  const cardsHTML = products.getProducts().map((product) => {
+    const cardElement = cardCatalogTemplate.content.cloneNode(true) as HTMLElement;
+    const card = new CardCatalog(cardElement.querySelector(".card")!, {
+      onClick: () => events.emit("card:select", { id: product.id }),
+    });
+
+    return card.render({
+      id: product.id,
+      title: product.title,
+      price: product.price ? `${product.price} синапсов` : null,
+      image: product.image,
+      category: product.category,
+    });
+  });
+
+  gallery.catalog = cardsHTML;
+});
+
+// Открытие карточки
+events.on("card:select", ({ id }: { id: string }) => {
+  const product = products.getProduct(id);
+  if (!product) return;
+
+  products.setSelectedProduct(product);
+
+  const cardElement = cardPreviewTemplate.content.cloneNode(true) as HTMLElement;
+  const card = new CardPreview(cardElement.querySelector(".card")!, {
+    onClick: () => {
+      if (cart.isProductInCart(product.id)) {
+        events.emit("card:remove", { id: product.id });
+      } else {
+        events.emit("card:add", { id: product.id });
+      }
+    },
+  });
+
+  const cardContainer = card.render({
+    id: product.id,
+    title: product.title,
+    price: product.price ? `${product.price} синапсов` : null,
+    image: product.image,
+    category: product.category,
+    description: product.description,
+    buttonText: cart.isProductInCart(product.id) ? "Удалить из корзины" : "В корзину",
+  });
+
+  // Блокируем кнопку если цена null
+  if (product.price === null) {
+    card.buttonText = "Недоступно";
+    card.buttonDisabled = true;
+  }
+
+  modal.content = cardContainer;
+  modal.open();
+});
+
+// Обработка изменения корзины (обновление счетчика)
+events.on("cart:changed", () => {
+  header.counter = cart.getCartLength();
+});
+
+// Добавление в корзину
+events.on("card:add", ({ id }: { id: string }) => {
+  const product = products.getProduct(id);
+  if (product) {
+    cart.addProduct(product);
+    modal.close();
+  }
+});
+
+// Удаление из корзины
+events.on("card:remove", ({ id }: { id: string }) => {
+  const product = products.getProduct(id);
+  if (product) {
+    cart.removeProduct(product);
+
+    // Закрытие модалки при удалении из карточки
+    if (products.getSelectedProduct()?.id === id) {
+      modal.close();
+    }
+
+    // Обновление корзины если открыта
+    const basketElement = modalContainer.querySelector(".basket");
+    if (basketElement) {
+      events.emit("basket:open");
+    }
+  }
+});
+
+// Открытие корзины
+events.on("basket:open", () => {
+  const basketElement = basketTemplate.content.cloneNode(true) as HTMLElement;
+  const basket = new Basket(basketElement.querySelector(".basket")!, events);
+
+  const cardsHTML = cart.getProducts().map((product, index) => {
+    const cardElement = cardBasketTemplate.content.cloneNode(true) as HTMLElement;
+    const card = new CardBasket(cardElement.querySelector(".card")!, {
+      onDelete: () => events.emit("card:remove", { id: product.id }),
+    });
+
+    return card.render({
+      id: product.id,
+      title: product.title,
+      price: product.price ? `${product.price} синапсов` : "Бесценно",
+      index: index + 1,
+    });
+  });
+
+  const basketContainer = basket.render({
+    items: cardsHTML,
+    total: cart.getCartPrice(),
+  });
+
+  modal.content = basketContainer;
+  modal.open();
+});
+
+// Обработка изменения данных покупателя
+events.on("buyer:changed", () => {
+  // Определяем какая форма открыта и валидируем соответствующую
+  const orderForm = modalContainer.querySelector('form[name="order"]');
+  const contactsForm = modalContainer.querySelector('form[name="contacts"]');
+
+  if (orderForm) {
+    validateOrder();
+  } else if (contactsForm) {
+    validateContacts();
+  }
+});
+
+// Оформление заказа
+events.on("basket:order", () => {
+  const orderElement = orderTemplate.content.cloneNode(true) as HTMLElement;
+  const orderForm = new OrderForm(orderElement.querySelector(".form") as HTMLFormElement, events);
+  modal.content = orderForm.render();
+});
+
+// Выбор способа оплаты
+events.on("order:payment", ({ payment }: { payment: string }) => {
+  buyer.setPayment(payment as "card" | "cash");
+});
+
+// Ввод адреса
+events.on("order:address", ({ address }: { address: string }) => {
+  buyer.setAddress(address);
+});
+
+// Валидация формы оплаты
+function validateOrder() {
+  const errors = buyer.validate();
+  const errorMessages: string[] = [];
+
+  if (errors.payment) errorMessages.push(errors.payment);
+  if (errors.address) errorMessages.push(errors.address);
+  const isValid = !errors.payment && !errors.address;
+
+  events.emit("order:valid", {
+    valid: isValid,
+    errors: errorMessages,
+  });
+}
+
+events.on("order:valid", ({ valid, errors }: { valid: boolean; errors: string[] }) => {
+  const form = modalContainer.querySelector('form[name="order"]') as HTMLFormElement;
+  if (form) {
+    const orderForm = new OrderForm(form, events);
+    orderForm.valid = valid;
+    orderForm.errors = errors;
+  }
+});
+
+// Отправка формы оплаты
+events.on("order:submit", () => {
+  const contactsElement = contactsTemplate.content.cloneNode(true) as HTMLElement;
+  const contactsForm = new ContactsForm(contactsElement.querySelector(".form") as HTMLFormElement, events);
+  modal.content = contactsForm.render();
+});
+
+// Ввод email
+events.on("contacts:email", ({ email }: { email: string }) => {
+  buyer.setEmail(email);
+});
+
+// Ввод телефона
+events.on("contacts:phone", ({ phone }: { phone: string }) => {
+  buyer.setPhone(phone);
+});
+
+// Валидация формы контактов
+function validateContacts() {
+  const errors = buyer.validate();
+  const errorMessages: string[] = [];
+
+  if (errors.email) errorMessages.push(errors.email);
+  if (errors.phone) errorMessages.push(errors.phone);
+
+  const isValid = !errors.email && !errors.phone;
+
+  events.emit("contacts:valid", {
+    valid: isValid,
+    errors: errorMessages,
+  });
+}
+
+events.on("contacts:valid", ({ valid, errors }: { valid: boolean; errors: string[] }) => {
+  const form = modalContainer.querySelector('form[name="contacts"]') as HTMLFormElement;
+  if (form) {
+    const contactsForm = new ContactsForm(form, events);
+    contactsForm.valid = valid;
+    contactsForm.errors = errors;
+  }
+});
+
+// Отправка формы контактов
+events.on("contacts:submit", async () => {
   try {
-    const productResponse = await apiService.getProducts();
-    return productResponse.items;
-  }
-  catch (err) {
-    console.error('Ошибка: ', err);
-    return [];
-  }
-}
+    const orderData = {
+      ...buyer.getBuyerInfo(),
+      total: cart.getCartPrice(),
+      items: cart.getProducts().map((p) => p.id),
+    };
 
-async function postOrder() : Promise<IOrderResponse| null>  {
+    const result = await apiService.postOrder(orderData);
+
+    if (result) {
+      const successElement = successTemplate.content.cloneNode(true) as HTMLElement;
+      const success = new Success(successElement.querySelector(".order-success")!, events);
+
+      const successContainer = success.render({
+        total: cart.getCartPrice(),
+      });
+
+      modal.content = successContainer;
+    }
+  } catch (error) {
+    console.error("Ошибка отправки заказа:", error);
+  }
+});
+
+// Закрытие экрана успеха
+events.on("success:close", () => {
+  modal.close();
+  cart.clearCart();
+  buyer.clearBuyerInfo();
+});
+
+// Закрытие модалки
+events.on("modal:close", () => {
+  // Очищаем выбранный товар
+  products.setSelectedProduct(null);
+});
+
+// Запуск приложения
+async function init() {
   try {
-    return await apiService.postOrder({
-      payment: "online",
-      email: "a@a.a",
-      phone: '123',
-      address: 'asdf',
-      total: 2200,
-      items: [
-        "854cef69-976d-4c2a-a18c-2aa45046c390",
-        "c101ab44-ed99-4a54-990d-47aa2bb4e7d9"
-      ]
-    })
-  }
-  catch(err) {
-    console.error('Ошибка: ', err);
-    return null;
+    const data = await apiService.getProducts();
+    products.setProducts(data.items); // Генерирует products:changed
+  } catch (error) {
+    console.error("Ошибка при запуске приложения:", error);
   }
 }
 
-const productCollection = await getData()
-const orderResponse = await postOrder();
-
-console.log('Проверка создания заказа: ', orderResponse)
-
-
-// Products
-
-// Проверка создания экземпляра
-const products = new Products();
-console.log('Массив товаров из каталога: ', products.getProducts());
-
-// Проверка установки коллекции продуктов
-products.setProducts(productCollection)
-console.log('Массив товаров из каталога: ', products.getProducts());
-
-// Проверка получение продукта по ID
-const products_product = products.getProduct('1c521d84-c48d-48fa-8cfb-9d911fa515fd');
-console.log('Получение продукта по ID: ', products_product);
-
-// Проверка получения выбранного продукта
-products.getSelectedProduct()
-console.log('Получение выбранного продукта: ', products.getSelectedProduct());
-
-// Проверка установки выбранного продукта
-products.setSelectedProduct(products_product);
-console.log('Получение выбранного продукта: ', products.getSelectedProduct());
-
-
-// Cart
-
-// Проверка создания корзины
-const cart = new Cart();
-console.log('Проверка создания корзины: ', cart);
-
-// Проверка наполнения корзины
-for(let i: number=0; i<3; i++) {
-  cart.addProduct(products.getProducts()[i]);
-}
-
-// Проверка, что продукты добавлены
-console.log('Проверка, что продукты добавлены:', cart.getProducts());
-
-// Проверка кол-ва продуктов в корзине
-console.log('Проверка кол-ва продуктов в корзине: ', cart.getCartLength());
-
-// Проверка получения суммы всей корзины
-console.log('Проверка получения суммы всей корзины: ', cart.getCartPrice())
-
-// Проверка наличия продукта в корзине
-const cart_product = cart.getProducts()[0]
-console.log('Проверка наличия продукта в корзине', cart.isProductInCart(cart_product.id))
-
-// Проверка удаления товара из корзины
-cart.removeProduct(cart_product)
-console.log('Проверка наличия продукта в корзине',  cart.isProductInCart(cart_product.id))
-console.log('Проверка кол-ва продуктов в корзине: ', cart.getCartLength());
-
-// Проверка очистки корзины
-cart.clearCart()
-console.log('Проверка кол-ва продуктов в корзине: ', cart.getCartLength());
-
-
-// Buyer
-
-// Проверка создания покупателя
-const buyer = new Buyer();
-console.log(buyer.getBuyerInfo())
-
-// Проверка изменения способа оплаты
-buyer.setPayment('card')
-console.log('Проверка изменения способа оплаты: ', buyer.getPayment())
-console.log('Проверка изменения способа оплаты: ', buyer.getBuyerInfo())
-
-// Проверка изменения адреса
-buyer.setAddress('Saint-Petersburg')
-console.log('Проверка изменения адреса: ', buyer.getAddress())
-console.log('Проверка изменения адреса: ', buyer.getBuyerInfo())
-
-// Проверка изменения email
-buyer.setEmail('a@a.a')
-console.log('Проверка изменения email: ', buyer.getEmail())
-console.log('Проверка изменения email: ', buyer.getBuyerInfo())
-
-// Проверка изменения телефона
-buyer.setPhone('54321')
-console.log('Проверка изменения телефона: ', buyer.getPhone())
-console.log('Проверка изменения телефона: ', buyer.getBuyerInfo())
-
-// Проверка очистки данных о покупателе
-buyer.clearBuyerInfo()
-console.log('Проверка очистки данных о покупателе: ', buyer.getBuyerInfo())
-
-// Проверка валидации
-console.log("Проверка валидации: ", buyer.validate())
+init();
