@@ -1,3 +1,5 @@
+import { TPayment } from "../../types";
+
 export interface HeaderData {
   counter: number;
 }
@@ -47,7 +49,7 @@ export interface FormData {
 }
 
 export interface OrderFormData extends FormData {
-  payment: "cash" | "card";
+  payment: TPayment;
   address: string;
 }
 

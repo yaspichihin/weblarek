@@ -26,8 +26,4 @@ export abstract class Form<T extends FormData> extends Component<T> {
   set errors(value: string[]) {
     this._errors.textContent = value.join(", ");
   }
-
-  clear() {
-    (this.container as HTMLFormElement).reset();
-  }
 }

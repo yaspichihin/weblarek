@@ -9,40 +9,24 @@ export class Buyer {
 
   constructor(protected events: IEvents) {}
 
-  getPayment(): TPayment {
-    return this._payment;
-  }
-
   setPayment(newPayment: TPayment) {
     this._payment = newPayment;
-    this.events.emit("buyer:changed");
-  }
-
-  getAddress(): string {
-    return this._address;
+    this.events.emit("buyer:changed", { field: "payment" });
   }
 
   setAddress(newAddress: string): void {
     this._address = newAddress;
-    this.events.emit("buyer:changed");
-  }
-
-  getEmail(): string {
-    return this._email;
+    this.events.emit("buyer:changed", { field: "address" });
   }
 
   setEmail(newEmail: string): void {
     this._email = newEmail;
-    this.events.emit("buyer:changed");
-  }
-
-  getPhone(): string {
-    return this._phone;
+    this.events.emit("buyer:changed", { field: "email" });
   }
 
   setPhone(newPhone: string): void {
     this._phone = newPhone;
-    this.events.emit("buyer:changed");
+    this.events.emit("buyer:changed", { field: "phone" });
   }
 
   getBuyerInfo(): IBuyer {
@@ -59,7 +43,7 @@ export class Buyer {
     this._address = "";
     this._email = "";
     this._phone = "";
-    this.events.emit("buyer:changed");
+    this.events.emit("buyer:changed", { field: "all" });
   }
 
   validate(): IValidationErrors {
